@@ -1,0 +1,9 @@
+services:
+  pgsql-webui-simple:
+    image: jjajjara/pgsql-webui-simple:latest
+    container_name: pgsql-webui-simple
+    restart: unless-stopped
+    ports:
+      - "3000:8000"
+    env_file:
+      - .env
