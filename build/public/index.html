@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PostgreSQL WebUI Simple</title>
     <style>
-        /* --- UI 일관성을 위한 기본 스타일 초기화 --- */
+        /* --- Base Styles Reset --- */
         *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
         html { line-height: 1.5; -webkit-text-size-adjust: 100%; -moz-tab-size: 4; tab-size: 4; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
         body { margin: 0; line-height: inherit; background-color: #111827; color: #d1d5db; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
@@ -13,14 +13,14 @@
         button { background-color: transparent; background-image: none; cursor: pointer; }
         table { text-indent: 0; border-color: inherit; border-collapse: collapse; }
         a { color: inherit; text-decoration: inherit; }
-        /* --- 기본 스타일 끝 --- */
+        /* --- End Base Styles --- */
 
-        /* 스크롤바 스타일 */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-        /* 레이아웃 */
+        /* Layout */
         .h-screen { height: 100vh; }
         .flex { display: flex; }
         .flex-col { flex-direction: column; }
@@ -29,8 +29,9 @@
         .flex-grow { flex-grow: 1; }
         .w-64 { width: 16rem; }
         .w-full { width: 100%; }
+        .w-32 { width: 8rem; }
         .max-w-2xl { max-width: 42rem; }
-        /* 간격 */
+        /* Spacing */
         .p-6 { padding: 1.5rem; }
         .p-8 { padding: 2rem; }
         .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
@@ -51,7 +52,9 @@
         .mt-8 { margin-top: 2rem; }
         .mt-auto { margin-top: auto; }
         .ml-4 { margin-left: 1rem; }
-        /* 타이포그래피 */
+        .ml-2 { margin-left: 0.5rem; }
+        .w-4 { width: 1rem; }
+        /* Typography */
         .text-2xl { font-size: 1.5rem; line-height: 2rem; }
         .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
         .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
@@ -59,6 +62,7 @@
         .font-bold { font-weight: 700; }
         .font-medium { font-weight: 500; }
         .text-white { color: #fff; }
+        .text-gray-100 { color: #f3f4f6; }
         .text-gray-200 { color: #e5e7eb; }
         .text-gray-300 { color: #d1d5db; }
         .text-gray-400 { color: #9ca3af; }
@@ -70,7 +74,9 @@
         .text-right { text-align: right; }
         .uppercase { text-transform: uppercase; }
         .tracking-wider { letter-spacing: 0.05em; }
-        /* 배경 */
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* Background */
+        .bg-gray-900 { background-color: #111827; }
         .bg-gray-800 { background-color: #1f2937; }
         .bg-gray-700 { background-color: #374151; }
         .bg-gray-600 { background-color: #4b5563; }
@@ -80,14 +86,14 @@
         .bg-black { background-color: #000; }
         .bg-opacity-70 { background-color: rgba(0, 0, 0, 0.7); }
         .bg-opacity-50 { background-color: rgba(0, 0, 0, 0.5); }
-        /* 테두리 */
+        /* Border */
         .rounded-md { border-radius: 0.375rem; }
         .rounded-lg { border-radius: 0.5rem; }
         .rounded-xl { border-radius: 0.75rem; }
         .border { border-width: 1px; }
         .border-gray-700 { border-color: #374151; }
         .border-gray-600 { border-color: #4b5563; }
-        /* 효과 */
+        /* Effects */
         .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
         .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
         .transition { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
@@ -103,7 +109,7 @@
         .focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
         .focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); }
         .focus\:ring-blue-500:focus { --tw-ring-color: #3b82f6; }
-        /* 기타 */
+        /* Other */
         .overflow-y-auto { overflow-y: auto; }
         .overflow-x-auto { overflow-x: auto; }
         .hidden { display: none; }
@@ -121,16 +127,18 @@
         .min-w-full { min-width: 100%; }
         .divide-y > :not([hidden]) ~ :not([hidden]) { border-top-width: 1px; }
         .divide-gray-700 > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+        .divide-gray-600 > :not([hidden]) ~ :not([hidden]) { border-color: #4b5563; }
         .whitespace-nowrap { white-space: nowrap; }
         .relative { position: relative; }
         .transform { transform: translateX(0) translateY(0) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1); }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
-        /* 모달 애니메이션 */
+        .table-fixed { table-layout: fixed; }
+        /* Modal Animation */
         .modal-enter { opacity: 0; transform: scale(0.95); }
         .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
         .modal-leave { opacity: 1; transform: scale(1); }
         .modal-leave-active { opacity: 0; transform: scale(0.95); transition: all 0.2s ease-in; }
-        /* 로더 애니메이션 */
+        /* Loader Animation */
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .opacity-0 { opacity: 0; }
@@ -140,11 +148,10 @@
         .translate-y-0 { transform: translateY(0); }
         .translate-y-2 { transform: translateY(0.5rem); }
 
-        /* --- [수정됨] 왼쪽 메뉴 겹침 문제 해결 --- */
         #table-list {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem; /* 테이블 링크 사이 간격 */
+            gap: 0.25rem; 
         }
     </style>
 </head>
@@ -160,7 +167,7 @@
             DB Admin
         </h1>
         <nav id="table-list" class="flex-grow">
-            <p class="text-gray-400">테이블 로딩 중...</p>
+            <p class="text-gray-400">Loading tables...</p>
         </nav>
         <div class="mt-auto text-center text-xs text-gray-500">
             <p>Created by jjajjara</p>
@@ -175,15 +182,21 @@
     <!-- Main Content -->
     <main class="flex-1 p-8 overflow-y-auto">
         <header class="flex justify-between items-center mb-6">
-            <h2 id="current-table-name" class="text-3xl font-bold text-white">테이블을 선택하세요</h2>
-            <button id="create-btn" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 flex items-center">
-                <svg class="mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem;"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                새로 만들기
-            </button>
+            <h2 id="current-table-name" class="text-3xl font-bold text-white">Select a table</h2>
+            <div class="flex items-center space-x-4">
+                <button id="reset-sort-btn" class="hidden bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 flex items-center">
+                    <svg class="mr-2" style="width: 1.25rem; height: 1.25rem;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414zm-6 0a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"></path></svg>
+                    Reset Sort
+                </button>
+                <button id="create-btn" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 flex items-center">
+                    <svg class="mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem;"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                    Create New
+                </button>
+            </div>
         </header>
         <div id="content-area" class="bg-gray-800 rounded-lg shadow-lg p-6">
              <div id="placeholder" class="text-center text-gray-400 py-16">
-                 <p>좌측 사이드바에서 관리할 테이블을 선택해주세요.</p>
+                 <p>Please select a table from the sidebar.</p>
              </div>
              <div id="data-table-container" class="hidden overflow-x-auto"></div>
         </div>
@@ -196,8 +209,8 @@
         <h3 id="modal-title" class="text-2xl font-bold mb-6 text-white"></h3>
         <form id="modal-form"></form>
         <div class="flex justify-end space-x-4 mt-8">
-            <button id="modal-cancel" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">취소</button>
-            <button id="modal-submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">저장</button>
+            <button id="modal-cancel" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">Cancel</button>
+            <button id="modal-submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200">Save</button>
         </div>
     </div>
 </div>
@@ -223,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableList = document.getElementById('table-list');
     const currentTableNameEl = document.getElementById('current-table-name');
     const createBtn = document.getElementById('create-btn');
+    const resetSortBtn = document.getElementById('reset-sort-btn');
     const placeholder = document.getElementById('placeholder');
     const dataTableContainer = document.getElementById('data-table-container');
 
@@ -243,6 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTable: null,
         currentData: [],
         editingItem: null,
+        sorting: { 
+            column: null,
+            direction: 'asc'
+        }
     };
 
     const showLoader = () => loader.classList.remove('hidden');
@@ -279,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTableList() {
         if (state.tables.length === 0) {
-            tableList.innerHTML = '<p class="text-gray-400">관리할 테이블이 없습니다.</p>';
+            tableList.innerHTML = '<p class="text-gray-400">No tables to manage.</p>';
             return;
         }
         tableList.innerHTML = state.tables.map(table => `
@@ -296,41 +314,56 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (state.sorting.column) {
+            resetSortBtn.classList.remove('hidden');
+        } else {
+            resetSortBtn.classList.add('hidden');
+        }
+
         placeholder.classList.add('hidden');
         dataTableContainer.classList.remove('hidden');
 
         const schema = state.schemas[state.currentTable];
         if (!schema) {
-            dataTableContainer.innerHTML = '<p>스키마 정보를 불러올 수 없습니다.</p>';
+            dataTableContainer.innerHTML = '<p>Could not load schema information.</p>';
             return;
         }
 
         const headers = schema.columns.map(c => c.column_name);
 
-        let tableHTML = `<table class="min-w-full divide-y divide-gray-700">
-            <thead class="bg-gray-800">
+        let tableHTML = `<table class="min-w-full divide-y divide-gray-600 table-fixed">
+            <thead class="bg-gray-700">
                 <tr>
-                    ${headers.map(h => `<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">${h}</th>`).join('')}
-                    <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                    ${headers.map(h => {
+                        const isSorting = state.sorting.column === h;
+                        const sortIcon = isSorting ? (state.sorting.direction === 'asc' ? '▲' : '▼') : '';
+                        return `<th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-100 uppercase tracking-wider cursor-pointer" data-column="${h}">
+                                    <div class="flex items-center">
+                                        <span class="truncate">${h}</span>
+                                        <span class="ml-2 w-4 flex-shrink-0 text-center">${sortIcon}</span>
+                                    </div>
+                                </th>`;
+                    }).join('')}
+                    <th scope="col" class="relative px-6 py-3 w-32"><span class="sr-only">Actions</span></th>
                 </tr>
             </thead>
             <tbody class="bg-gray-800 divide-y divide-gray-700">`;
 
         if (state.currentData.length === 0) {
-            tableHTML += `<tr><td colspan="${headers.length + 1}" class="px-6 py-12 text-center text-gray-400">데이터가 없습니다.</td></tr>`;
+            tableHTML += `<tr><td colspan="${headers.length + 1}" class="px-6 py-12 text-center text-gray-400">No data to display.</td></tr>`;
         } else {
             state.currentData.forEach(row => {
                 tableHTML += `<tr class="transition duration-150 hover:bg-gray-700">`;
                 headers.forEach(header => {
                     const value = row[header];
                     const displayValue = value === null || value === undefined ? '<em class="text-gray-500">null</em>' : String(value).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    tableHTML += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${displayValue}</td>`;
+                    tableHTML += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300 truncate">${displayValue}</td>`;
                 });
                 const rowId = row[schema.primaryKey];
                 tableHTML += `
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button data-id="${rowId}" class="edit-btn text-indigo-400 hover:text-indigo-600">수정</button>
-                        <button data-id="${rowId}" class="delete-btn text-red-400 hover:text-red-600 ml-4">삭제</button>
+                        <button data-id="${rowId}" class="edit-btn text-indigo-400 hover:text-indigo-600">Edit</button>
+                        <button data-id="${rowId}" class="delete-btn text-red-400 hover:text-red-600 ml-4">Delete</button>
                     </td>
                 `;
                 tableHTML += `</tr>`;
@@ -346,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('hidden');
         setTimeout(() => modal.classList.add('modal-enter-active'), 10);
 
-        modalTitle.textContent = mode === 'create' ? `${state.currentTable}에 새 항목 추가` : `${state.currentTable} 항목 수정`;
+        modalTitle.textContent = mode === 'create' ? `New Item in ${state.currentTable}` : `Edit Item in ${state.currentTable}`;
 
         const schema = state.schemas[state.currentTable];
         modalForm.innerHTML = schema.columns.map(col => {
@@ -392,20 +425,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'text';
     }
 
+    async function fetchAndRenderData() {
+        if (!state.currentTable) return;
+
+        let url = `${API_BASE}/data/${state.currentTable}`;
+        const params = new URLSearchParams();
+        if (state.sorting.column) {
+            params.append('sort_by', state.sorting.column);
+            params.append('sort_order', state.sorting.direction);
+        }
+        
+        const queryString = params.toString();
+        if (queryString) {
+            url += `?${queryString}`;
+        }
+
+        try {
+            const data = await apiFetch(url);
+            state.currentData = data;
+            renderDataTable();
+        } catch (error) {
+             dataTableContainer.innerHTML = `<p class="text-red-400">Error loading data: ${error.message}</p>`;
+        }
+    }
+
     async function selectTable(tableName) {
         state.currentTable = tableName;
         currentTableNameEl.textContent = tableName;
         createBtn.classList.remove('hidden');
 
-        renderTableList();
+        state.sorting.column = null;
+        state.sorting.direction = 'asc';
 
-        try {
-            const data = await apiFetch(`${API_BASE}/data/${tableName}`);
-            state.currentData = data;
-            renderDataTable();
-        } catch (error) {
-             dataTableContainer.innerHTML = `<p class="text-red-400">데이터를 불러오는 중 오류가 발생했습니다: ${error.message}</p>`;
-        }
+        renderTableList();
+        await fetchAndRenderData();
     }
 
     async function handleFormSubmit(e) {
@@ -431,26 +484,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const method = state.editingItem ? 'PUT' : 'POST';
 
         try {
-            await apiFetch(url, {
+            const result = await apiFetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            showToast(`데이터가 성공적으로 ${state.editingItem ? '수정' : '저장'}되었습니다.`);
+            showToast(state.editingItem ? 'Data updated successfully.' : 'Data saved successfully.');
             closeModal();
-            selectTable(state.currentTable);
+            await fetchAndRenderData();
         } catch (error) {
             console.error('Submit failed:', error);
         }
     }
 
     async function handleDelete(itemId) {
-        if (!confirm('정말로 이 항목을 삭제하시겠습니까?')) return;
+        if (!confirm('Are you sure you want to delete this item?')) return;
 
         try {
             await apiFetch(`${API_BASE}/data/${state.currentTable}/${itemId}`, { method: 'DELETE' });
-            showToast('데이터가 성공적으로 삭제되었습니다.');
-            selectTable(state.currentTable);
+            showToast('Data deleted successfully.');
+            await fetchAndRenderData();
         } catch (error) {
             console.error('Delete failed:', error);
         }
@@ -466,21 +519,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     createBtn.addEventListener('click', () => openModal('create'));
+    resetSortBtn.addEventListener('click', () => {
+        state.sorting.column = null;
+        state.sorting.direction = 'asc';
+        fetchAndRenderData();
+    });
 
     modalForm.addEventListener('submit', handleFormSubmit);
     modalCancel.addEventListener('click', closeModal);
     modalSubmit.addEventListener('click', () => modalForm.requestSubmit());
 
     dataTableContainer.addEventListener('click', e => {
-        if (e.target.classList.contains('edit-btn')) {
-            const itemId = e.target.dataset.id;
+        if (e.target.closest('.edit-btn')) {
+            const itemId = e.target.closest('.edit-btn').dataset.id;
             const schema = state.schemas[state.currentTable];
             const item = state.currentData.find(d => String(d[schema.primaryKey]) === String(itemId));
             if (item) openModal('edit', item);
+            return;
         }
-        if (e.target.classList.contains('delete-btn')) {
-            const itemId = e.target.dataset.id;
+        if (e.target.closest('.delete-btn')) {
+            const itemId = e.target.closest('.delete-btn').dataset.id;
             handleDelete(itemId);
+            return;
+        }
+
+        const header = e.target.closest('th[data-column]');
+        if (header) {
+            const column = header.dataset.column;
+            if (state.sorting.column === column) {
+                state.sorting.direction = state.sorting.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sorting.column = column;
+                state.sorting.direction = 'asc';
+            }
+            fetchAndRenderData();
         }
     });
 
@@ -491,13 +563,13 @@ document.addEventListener('DOMContentLoaded', () => {
             state.schemas = schemaData.schemas;
             renderTableList();
             if (state.tables.length > 0) {
-               selectTable(state.tables[0]);
+               await selectTable(state.tables[0]);
             } else {
-                 placeholder.innerHTML = `<p>관리할 테이블이 없습니다. .env 파일을 확인해주세요.</p>`;
+                 placeholder.innerHTML = `<p>No tables to manage. Check your .env file.</p>`;
             }
         } catch (error) {
-            placeholder.innerHTML = `<p class="text-red-400">초기화 중 오류 발생: ${error.message}</p>`;
-            tableList.innerHTML = '<p class="text-red-400">서버 연결 실패</p>';
+            placeholder.innerHTML = `<p class="text-red-400">Error during initialization: ${error.message}</p>`;
+            tableList.innerHTML = '<p class="text-red-400">Server connection failed</p>';
         }
     }
 
