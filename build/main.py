@@ -3,41 +3,42 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import psycopg2
-import psycopg2.extras  # <--- 오류 해결을 위해 이 라인을 추가했습니다.
+import psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from dotenv import load_dotenv
 
-# .env 파일에서 환경변수 로드
+# Load environment variables from .env file
 load_dotenv()
 
-# --- 환경변수 읽기 ---
+# --- Read environment variables ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 TABLES_ENV = os.getenv("TABLES")
 table_names = [table.strip() for table in TABLES_ENV.split(',')] if TABLES_ENV else []
 PORT = int(os.getenv("PORT", 8000))
 
-# --- 데이터베이스 연결 풀 설정 ---
+# --- Database connection pool setup ---
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL 환경 변수가 설정되지 않았습니다.")
+    raise Exception("DATABASE_URL environment variable is not set.")
 
-# 연결 풀 생성 (minconn=1, maxconn=5)
+# Create connection pool (minconn=1, maxconn=5)
 pool = SimpleConnectionPool(1, 5, dsn=DATABASE_URL)
 
-# --- FastAPI 애플리케이션 설정 ---
+# --- FastAPI application setup ---
 app = FastAPI()
 
-# 정적 파일 (HTML, JS, CSS) 제공을 위한 마운트
+# Mount for serving static files (HTML, JS, CSS)
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
-# 테이블 스키마 정보를 저장할 딕셔너리
+# Dictionary to store table schema information
 table_schemas = {}
 
-# --- 데이터베이스 연결 의존성 ---
+# --- Database connection dependency ---
 def get_db_connection():
-    """연결 풀에서 데이터베이스 커넥션을 가져오는 의존성 함수"""
+    """Dependency function to get a database connection from the pool"""
     conn = None
     try:
         conn = pool.getconn()
@@ -46,11 +47,11 @@ def get_db_connection():
         if conn:
             pool.putconn(conn)
 
-# --- 서버 시작 시 스키마 정보 로드 ---
+# --- Load schema information on server startup ---
 @app.on_event("startup")
 async def startup_event():
-    """서버 시작 시 테이블 스키마 정보를 미리 불러옵니다."""
-    print('관리 대상 테이블 스키마를 가져옵니다:', table_names)
+    """Pre-loads table schema information on server startup."""
+    print('Fetching schemas for tables:', table_names)
     conn = None
     try:
         conn = pool.getconn()
@@ -86,51 +87,72 @@ async def startup_event():
                             "columns": rows,
                             "primaryKey": primary_key,
                         }
-                        print(f"'{table_name}' 테이블 스키마 로드 완료. 기본 키: {primary_key or '없음'}")
+                        print(f"'{table_name}' schema loaded. Primary key: {primary_key or 'None'}")
                     else:
-                        print(f"경고: '{table_name}' 테이블을 찾을 수 없거나 컬럼이 없습니다.")
+                        print(f"Warning: Table '{table_name}' not found or has no columns.")
                 except Exception as e:
-                    print(f"'{table_name}' 테이블 스키마 조회 중 오류:", e)
+                    print(f"Error fetching schema for table '{table_name}':", e)
     finally:
         if conn:
             pool.putconn(conn)
     if not table_names:
-        print('경고: .env 파일에 "TABLES" 환경 변수가 설정되지 않았습니다. 관리할 테이블이 없습니다.')
+        print('Warning: "TABLES" environment variable not set in .env file. No tables to manage.')
 
 
-# --- API 라우트 ---
+# --- API Routes ---
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
-    """메인 HTML 페이지를 반환합니다."""
+    """Returns the main HTML page."""
     with open("public/index.html", "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 @app.get("/api/schema")
 async def get_schema():
-    """테이블 목록과 스키마 정보를 반환합니다."""
+    """Returns the list of tables and their schemas."""
     if not table_schemas:
-        raise HTTPException(status_code=404, detail="관리할 테이블이 없거나 스키마를 불러올 수 없습니다.")
+        raise HTTPException(status_code=404, detail="No tables to manage or schemas could not be loaded.")
     return {"tables": table_names, "schemas": table_schemas}
 
 @app.get("/api/data/{table}")
-async def get_data(table: str, conn=Depends(get_db_connection)):
-    """특정 테이블의 모든 데이터를 조회합니다."""
+async def get_data(table: str, conn=Depends(get_db_connection), sort_by: str = None, sort_order: str = 'asc'):
+    """Retrieves and sorts data for a specific table."""
     if table not in table_names:
-        raise HTTPException(status_code=404, detail="알 수 없는 테이블입니다.")
+        raise HTTPException(status_code=404, detail="Unknown table.")
+
+    schema = table_schemas.get(table)
+    if not schema:
+        raise HTTPException(status_code=404, detail="Table schema not found.")
+
+    order_by_clause = ""
+    if sort_by:
+        valid_columns = [col['column_name'] for col in schema['columns']]
+        if sort_by not in valid_columns:
+            raise HTTPException(status_code=400, detail="Invalid sort column.")
+
+        if sort_order.lower() not in ['asc', 'desc']:
+            raise HTTPException(status_code=400, detail="Invalid sort order.")
+
+        order_by_clause = f'ORDER BY "{sort_by}" {sort_order.upper()}'
+    else:
+        primary_key = schema.get("primaryKey")
+        if primary_key:
+            order_by_clause = f'ORDER BY "{primary_key}" ASC'
+
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(f'SELECT * FROM "{table}"')
+            query = f'SELECT * FROM "{table}" {order_by_clause}'
+            cur.execute(query)
             result = [dict(row) for row in cur.fetchall()]
-            return result
+            return jsonable_encoder(result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"데이터 조회 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {e}")
 
 @app.post("/api/data/{table}")
 async def create_data(table: str, request: Request, conn=Depends(get_db_connection)):
-    """새로운 데이터를 테이블에 추가합니다."""
+    """Adds a new record to the table."""
     if table not in table_names:
-        raise HTTPException(status_code=404, detail="알 수 없는 테이블입니다.")
+        raise HTTPException(status_code=404, detail="Unknown table.")
 
     data = await request.json()
     columns = data.keys()
@@ -144,25 +166,24 @@ async def create_data(table: str, request: Request, conn=Depends(get_db_connecti
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(query, list(values))
-            new_record = dict(cur.fetchone())
+            new_record = cur.fetchone()
             conn.commit()
-            return JSONResponse(content=new_record, status_code=201)
+            return JSONResponse(content=jsonable_encoder(new_record), status_code=201)
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"데이터 추가 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error adding data: {e}")
 
 
 @app.put("/api/data/{table}/{item_id}")
 async def update_data(table: str, item_id: str, request: Request, conn=Depends(get_db_connection)):
-    """기존 데이터를 수정합니다."""
+    """Updates an existing record."""
     schema = table_schemas.get(table)
     if not schema or not schema.get("primaryKey"):
-        raise HTTPException(status_code=400, detail="기본 키가 정의되지 않은 테이블은 수정할 수 없습니다.")
+        raise HTTPException(status_code=400, detail="Cannot update a table with no primary key defined.")
 
     primary_key = schema["primaryKey"]
     data = await request.json()
 
-    # 기본 키는 업데이트 대상에서 제외
     data.pop(primary_key, None)
 
     columns = data.keys()
@@ -175,21 +196,21 @@ async def update_data(table: str, item_id: str, request: Request, conn=Depends(g
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(query, values + [item_id])
             if cur.rowcount == 0:
-                raise HTTPException(status_code=404, detail="해당 ID의 데이터를 찾을 수 없습니다.")
-            updated_record = dict(cur.fetchone())
+                raise HTTPException(status_code=404, detail="Record with the specified ID not found.")
+            updated_record = cur.fetchone()
             conn.commit()
-            return updated_record
+            return jsonable_encoder(updated_record)
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"데이터 수정 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating data: {e}")
 
 
 @app.delete("/api/data/{table}/{item_id}")
 async def delete_data(table: str, item_id: str, conn=Depends(get_db_connection)):
-    """데이터를 삭제합니다."""
+    """Deletes a record."""
     schema = table_schemas.get(table)
     if not schema or not schema.get("primaryKey"):
-        raise HTTPException(status_code=400, detail="기본 키가 정의되지 않은 테이블은 삭제할 수 없습니다.")
+        raise HTTPException(status_code=400, detail="Cannot delete from a table with no primary key defined.")
 
     primary_key = schema["primaryKey"]
     query = f'DELETE FROM "{table}" WHERE "{primary_key}" = %s'
@@ -198,13 +219,13 @@ async def delete_data(table: str, item_id: str, conn=Depends(get_db_connection))
         with conn.cursor() as cur:
             cur.execute(query, (item_id,))
             if cur.rowcount == 0:
-                raise HTTPException(status_code=404, detail="해당 ID의 데이터를 찾을 수 없습니다.")
+                raise HTTPException(status_code=404, detail="Record with the specified ID not found.")
             conn.commit()
             return JSONResponse(content={}, status_code=204)
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"데이터 삭제 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting data: {e}")
 
-# --- Uvicorn 서버 실행 (개발용) ---
+# --- Uvicorn server execution (for development) ---
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
